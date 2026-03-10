@@ -26,22 +26,24 @@
 #include <fcntl.h>
 #include <signal.h>
 
+using namespace std;
+
 // ─────────────────────────────────────────────
 //  Constants
 // ─────────────────────────────────────────────
-static const std::string SHELL_NAME = "minishell";
-static const std::string PROMPT     = "\033[1;32mminishell\033[0m> ";
+static const string SHELL_NAME = "minishell";
+static const string PROMPT     = "\033[1;32mminishell\033[0m> ";
 
 // ─────────────────────────────────────────────
 //  Data structures
 // ─────────────────────────────────────────────
 
 struct Command {
-    std::vector<std::string> args;   // argv[0] = program name
-    std::string inputFile;           // < file
-    std::string outputFile;          // > file
-    bool appendOutput = false;       // >> flag
-    bool background   = false;       // & flag
+    vector<string> args;   // argv[0] = program name
+    string inputFile;      // < file
+    string outputFile;     // > file
+    bool appendOutput = false;  // >> flag
+    bool background   = false;  // & flag
 };
 
 // ─────────────────────────────────────────────
@@ -55,17 +57,17 @@ void sigchld_handler(int /*sig*/) {
 
 // SIGINT handler — shell itself ignores Ctrl+C
 void sigint_handler(int /*sig*/) {
-    std::cout << "\n" << PROMPT << std::flush;
+    cout << "\n" << PROMPT << flush;
 }
 
 // ─────────────────────────────────────────────
 //  Tokeniser
 // ─────────────────────────────────────────────
 
-std::vector<std::string> tokenise(const std::string& line) {
-    std::vector<std::string> tokens;
-    std::istringstream iss(line);
-    std::string tok;
+vector<string> tokenise(const string& line) {
+    vector<string> tokens;
+    istringstream iss(line);
+    string tok;
     while (iss >> tok) tokens.push_back(tok);
     return tokens;
 }
@@ -74,12 +76,12 @@ std::vector<std::string> tokenise(const std::string& line) {
 //  Parser — splits token list on '|', builds Commands
 // ─────────────────────────────────────────────
 
-std::vector<Command> parse(const std::vector<std::string>& tokens) {
-    std::vector<Command> cmds;
+vector<Command> parse(const vector<string>& tokens) {
+    vector<Command> cmds;
     Command current;
 
     for (size_t i = 0; i < tokens.size(); ++i) {
-        const std::string& t = tokens[i];
+        const string& t = tokens[i];
 
         if (t == "|") {
             cmds.push_back(current);
@@ -111,10 +113,10 @@ std::vector<Command> parse(const std::vector<std::string>& tokens) {
 bool handle_builtin(const Command& cmd) {
     if (cmd.args.empty()) return false;
 
-    const std::string& prog = cmd.args[0];
+    const string& prog = cmd.args[0];
 
     if (prog == "exit") {
-        std::cout << "Bye!\n";
+        cout << "Bye!\n";
         exit(0);
     }
 
@@ -127,13 +129,13 @@ bool handle_builtin(const Command& cmd) {
 
     if (prog == "pwd") {
         char buf[4096];
-        if (getcwd(buf, sizeof(buf))) std::cout << buf << "\n";
+        if (getcwd(buf, sizeof(buf))) cout << buf << "\n";
         else perror("pwd");
         return true;
     }
 
     if (prog == "help") {
-        std::cout
+        cout
             << "─────────────────────────────────────────\n"
             << "  " << SHELL_NAME << " — built-in commands\n"
             << "─────────────────────────────────────────\n"
@@ -190,26 +192,26 @@ void execute_single(const Command& cmd, int inFd, int outFd, bool background) {
         }
 
         // Build argv
-        std::vector<char*> argv;
+        vector<char*> argv;
         for (auto& a : cmd.args) argv.push_back(const_cast<char*>(a.c_str()));
         argv.push_back(nullptr);
 
         execvp(argv[0], argv.data());
         // If we reach here, exec failed
-        std::cerr << SHELL_NAME << ": " << cmd.args[0] << ": command not found\n";
+        cerr << SHELL_NAME << ": " << cmd.args[0] << ": command not found\n";
         exit(127);
     }
 
     // ── Parent process ──
     if (!background) waitpid(pid, nullptr, 0);
-    else std::cout << "[bg] pid " << pid << "\n";
+    else cout << "[bg] pid " << pid << "\n";
 }
 
 // ─────────────────────────────────────────────
 //  Pipeline executor
 // ─────────────────────────────────────────────
 
-void execute_pipeline(std::vector<Command>& cmds) {
+void execute_pipeline(vector<Command>& cmds) {
     if (cmds.empty()) return;
 
     // Single command — check built-ins first
@@ -221,7 +223,7 @@ void execute_pipeline(std::vector<Command>& cmds) {
 
     // Multiple commands — wire up pipes
     int n = (int)cmds.size();
-    std::vector<int> pipeFds(2 * (n - 1));
+    vector<int> pipeFds(2 * (n - 1));
 
     for (int i = 0; i < n - 1; ++i) {
         if (pipe(&pipeFds[2 * i]) < 0) { perror("pipe"); return; }
@@ -251,20 +253,20 @@ int main() {
     signal(SIGINT,  sigint_handler);
     signal(SIGCHLD, sigchld_handler);
 
-    std::cout << SHELL_NAME << " — type 'help' for usage, 'exit' to quit\n";
+    cout << SHELL_NAME << " — type 'help' for usage, 'exit' to quit\n";
 
-    std::string line;
+    string line;
     while (true) {
-        std::cout << PROMPT << std::flush;
+        cout << PROMPT << flush;
 
-        if (!std::getline(std::cin, line)) {
-            std::cout << "\n";
+        if (!getline(cin, line)) {
+            cout << "\n";
             break; // EOF (Ctrl+D)
         }
 
         // Trim whitespace
         size_t start = line.find_first_not_of(" \t");
-        if (start == std::string::npos) continue;
+        if (start == string::npos) continue;
         line = line.substr(start);
         if (line.empty() || line[0] == '#') continue;
 
